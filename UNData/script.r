@@ -4,12 +4,13 @@ library(readxl)
 library(tidyr)
 library(tidyverse)
 library(plyr)
+library(data.table)
 
-# Load all tables
+# Load all data tables
 PopulationGrowth <- read_csv("Downloads/SYB61_253_Population Growth Rates in Urban areas and Capital cities.csv",
                               col_types = cols(`Capital City` = col_skip(), `Capital City footnote` = col_skip(),
                               Footnotes = col_skip(), `Region/Country/Area` = col_number(), Series = col_character(),
-                              Source = col_skip(), Value = col_number(), X2 = col_skip(),Year = col_number()), 
+                              Source = col_skip(), Value = col_number(), X2 = col_skip(),Year = col_number()),
                               na = "NA", skip = 1)
 MigrantsRefugees <- read_csv("Downloads/SYB62_327_201907_International Migrants and Refugees.csv",
                               col_types = cols(Footnotes = col_skip(), `Region/Country/Area` = col_number(),
@@ -101,109 +102,124 @@ ThreatenedSpecies <- read_csv("Downloads/SYB62_313_201907_Threatened Species.csv
                               col_types = cols(Footnotes = col_skip(), `Region/Country/Area` = col_number(),
                               Series = col_character(), Source = col_skip(), Value = col_number(),
                               X2 = col_skip(), Year = col_number()), na = "NA", skip = 1)
+
+# Load code list tablee
 CodeList <- read_excel("Downloads/UNSD — Methodology.xlsx", sheet = "Sheet1")
 
-# Remove rows containing regional data
-CO2 <- CO2[-c(1:16),]
-Crime <- Crime[-c(1:6),]
-Education <- Education[-c(1:495),]
-Energy <- Energy[-c(1:280),]
-Fertility <- Fertility[-c(1:560),]
-GDP <- GDP[-c(1:836),]
-Internet <- Internet[-c(1:145),]
-Land <- Land[-c(1:685),]
-MFEducation <- MFEducation[-c(1:329),]
-Patents <- Patents[-c(1:22),]
-PopulationDensity <- PopulationDensity[-c(1:899),]
-PopulationGrowth <- PopulationGrowth[-c(1:290),]
-RDGDP <- RDGDP[-c(1:39),]
-Unemployment <- Unemployment[-c(1:600),]
-WaterSanitation <- WaterSanitation[-c(1:276),]
-WomenPolitics <- WomenPolitics[-c(1:240),]
+# Store the names of dataframes into a vector
+DFs <- list(PopulationGrowth, MigrantsRefugees, PopulationDensity, Fertility, EducationSpending, Education,
+         Unemployment, GDP, HealthSpending, WomenPolitics, Industry, Patents, MFEducation, RDStaff,
+         RDGDP, Crime, HealthStaff, WaterSanitation, CO2, Internet, Land, Energy, ThreatenedSpecies)
 
 # Spread all dataframes, make row-row variables into row-column variables
-CO2 <- spread(CO2, Series, Value)
-Crime <- spread(Crime, Series, Value)
-Education <- spread(Education, Series, Value)
-EducationSpending <- spread(EducationSpending, Series, Value)
-Energy <- spread(Energy, Series, Value)
-Fertility <- spread(Fertility, Series, Value)
-GDP <- spread(GDP, Series, Value)
-HealthSpending <- spread(HealthSpending, Series, Value)
-HealthStaff <- spread(HealthStaff, Series, Value)
-Industry <- spread(Industry, Series, Value)
-Internet <- spread(Internet, Series, Value)
-Land <- spread(Land, Series, Value)
-MFEducation <- spread(MFEducation, Series, Value)
-MigrantsRefugees <- spread(MigrantsRefugees, Series, Value)
-Patents <- spread(Patents, Series, Value)
-PopulationDensity <- spread(PopulationDensity, Series, Value)
-PopulationGrowth <- spread(PopulationGrowth, Series, Value)
-RDGDP <- spread(RDGDP, Series, Value)
-RDStaff <- spread(RDStaff, Series, Value)
-ThreatenedSpecies <- spread(ThreatenedSpecies, Series, Value)
-Unemployment <- spread(Unemployment, Series, Value)
-WaterSanitation <- spread(WaterSanitation, Series, Value)
-WomenPolitics <- spread(WomenPolitics, Series, Value)
+DFs <- lapply(DFs, function(x) {x <- spread(x, Series, Value)})
 
-# Keep only the most recent entry for each country, define the function
-RecentEntry <- function(x){x[tapply(1:nrow(x),x$"Region/Country/Area",function(ii) ii[which.max(x$"Year"[ii])]),]}
-
-# Apply the function to all dataframes
-CO2 <- RecentEntry(CO2)
-Crime <- RecentEntry(Crime)
-Education <- RecentEntry(Education)
-EducationSpending <- RecentEntry(EducationSpending)
-Energy <- RecentEntry(Energy)
-Fertility <- RecentEntry(Fertility)
-GDP <- RecentEntry(GDP)
-HealthSpending <- RecentEntry(HealthSpending)
-HealthStaff <- RecentEntry(HealthStaff)
-Industry <- RecentEntry(Industry)
-Internet <- RecentEntry(Internet)
-Land <- RecentEntry(Land)
-MFEducation <- RecentEntry(MFEducation)
-MigrantsRefugees <- RecentEntry(MigrantsRefugees)
-Patents <- RecentEntry(Patents)
-PopulationDensity <- RecentEntry(PopulationDensity)
-PopulationGrowth <- RecentEntry(PopulationGrowth)
-RDGDP <- RecentEntry(RDGDP)
-RDStaff <- RecentEntry(RDStaff)
-ThreatenedSpecies <- RecentEntry(ThreatenedSpecies)
-Unemployment <- RecentEntry(Unemployment)
-WaterSanitation <- RecentEntry(Unemployment)
-WomenPolitics <- RecentEntry(WomenPolitics)
+# Keep only the most recent entry for each country
+DFs <- lapply(DFs, function(x){x[tapply(1:nrow(x),x$"Region/Country/Area",function(ii) ii[which.max(x$"Year"[ii])]),]})
+DFs <- lapply(DFs, function(x){x[,-2]})
 
 # Join all dataframes into one by country name (X2)
-UNData <- full_join(CO2, Crime, by = "Region/Country/Area"); rm(CO2, Crime)
-UNData <- full_join(UNData, Education, by = "Region/Country/Area"); rm(Education)
-UNData <- full_join(UNData, EducationSpending, by = "Region/Country/Area"); rm(EducationSpending)
-UNData <- full_join(UNData, Energy, by = "Region/Country/Area"); rm(Energy)
-UNData <- full_join(UNData, Fertility, by = "Region/Country/Area"); rm(Fertility)
-UNData <- full_join(UNData, GDP, by = "Region/Country/Area"); rm(GDP)
-UNData <- full_join(UNData, HealthSpending, by = "Region/Country/Area"); rm(HealthSpending)
-UNData <- full_join(UNData, HealthStaff, by = "Region/Country/Area"); rm(HealthStaff)
-UNData <- full_join(UNData, Industry, by = "Region/Country/Area"); rm(Industry)
-UNData <- full_join(UNData, Internet, by = "Region/Country/Area"); rm(Internet)
-UNData <- full_join(UNData, Land, by = "Region/Country/Area"); rm(Land)
-UNData <- full_join(UNData, MFEducation, by = "Region/Country/Area"); rm(MFEducation)
-UNData <- full_join(UNData, MigrantsRefugees, by = "Region/Country/Area"); rm(MigrantsRefugees)
-UNData <- full_join(UNData, Patents, by = "Region/Country/Area"); rm(Patents)
-UNData <- full_join(UNData, PopulationDensity, by = "Region/Country/Area"); rm(PopulationDensity)
-UNData <- full_join(UNData, PopulationGrowth, by = "Region/Country/Area"); rm(PopulationGrowth)
-UNData <- full_join(UNData, RDGDP, by = "Region/Country/Area"); rm(RDGDP)
-UNData <- full_join(UNData, RDStaff, by = "Region/Country/Area"); rm(RDStaff)
-UNData <- full_join(UNData, ThreatenedSpecies, by = "Region/Country/Area"); rm(ThreatenedSpecies)
-UNData <- full_join(UNData, Unemployment, by = "Region/Country/Area"); rm(Unemployment)
-UNData <- full_join(UNData, WaterSanitation, by = "Region/Country/Area"); rm(WaterSanitation)
-UNData <- full_join(UNData, WomenPolitics, by = "Region/Country/Area"); rm(WomenPolitics)
-
-# Remove all the year variables from the data frame
-UNData <- UNData[, -grep("^Year", colnames(UNData))]
+UNData <- Reduce(function(...) merge(..., all=TRUE), DFs)
 
 # Remove all non-country rows and substitute codes for country names
 UNData <-UNData[(UNData$"Region/Country/Area" %in% CodeList$"Code"),]
 names(UNData)[1] <- "Code"
 names(CodeList)[1] <- "Region/Country/Area"
-UNData <- join(UNData, CodeList)
+UNData <- join(UNData, CodeList); rm(CodeList)
 UNData <- UNData[,c(139,2:138)]
+names(UNData)[1] <- "Country"
+
+# Keep columns with at least 50 non-NA values
+UNData <- as.data.frame(UNData)
+iKeep <- as.logical(c())
+for(i in 1:ncol(UNData)){
+  iKeep <- c(iKeep, sum(is.na(UNData[,i])) <= (nrow(UNData)-50))
+}
+UNData <- UNData[,iKeep]
+
+# Keep rows with at least 50 non-NA values
+iKeep <- as.logical(c())
+for(i in 1:nrow(UNData)){
+  iKeep <- c(iKeep, sum(is.na(UNData[i,])) <= (ncol(UNData)-50))
+}
+UNData <- UNData[iKeep,]
+
+# Create histograms for each variable
+plotnum <- 0
+for(i in 2:ncol(UNData)){
+  ivar <- names(UNData[i])
+
+  plotname <- paste0("Plot",plotnum+1,".png")
+
+  png(paste0("Plots/", plotname),width=750,height=500,units="px")
+
+  hist(UNData[,i], col="#2C3E50", breaks=100,
+                    main = paste("Histogram of:", ivar, sep="\n"),
+                    xlab= ivar)
+
+  dev.off()
+
+  cat(paste("Variable index =", i),
+      paste("Plot name:", plotname),
+      paste("Plotted variable:",ivar),
+      paste("DONE!"),
+      cat("\n"),
+      sep ="\n")
+
+  plotnum <- plotnum + 1
+}
+
+# Calculate Rsquared and Pvalue of Ftest of univariate linear fit
+UnivarSumm <- NULL
+
+for(i in 2:(ncol(UNData)-1)){
+  for(j in (i+1):ncol(UNData)){
+    itest1 <- !is.na(UNData[i])
+    itest2 <- !is.na(UNData[j])
+    itest <- itest1 + itest2
+    itest[itest == 1] <- 0
+    itestsum <- sum(itest)
+    if (itestsum > 0){
+      imod <- lm(UNData[,i] ~ UNData[,j], na.action = na.exclude)
+      isumm <- summary(imod)
+      irsq <- isumm["adj.r.squared"]
+      ipval <- pf(isumm$fstatistic[1],isumm$fstatistic[2],isumm$fstatistic[3],lower.tail=F)
+      UnivarSumm <- rbind(UnivarSumm, data.frame(i, j, irsq, ipval))
+    }
+    else {
+      next
+    }
+  }
+}
+
+# Keep only the high regressions and low pvalues
+UnivarSumm <- UnivarSumm[abs(UnivarSumm$adj.r.squared) <= .75, ]
+UnivarSumm <- UnivarSumm[abs(UnivarSumm$adj.r.squared) >= .50, ]
+UnivarSumm <- UnivarSumm[UnivarSumm$ipval < 0.01, ]
+
+# Create scatterplots for each variable pair
+for(z in 1:nrow(UnivarSumm)){
+    i <- UnivarSumm$i[z]
+    j <- UnivarSumm$j[z]
+    ivar1 <- names(UNData[i])
+    ivar2 <- names(UNData[j])
+
+    plotname <- paste0("Plot",plotnum+1,".png")
+
+    png(paste0("Plots/", plotname),width=750,height=500,units="px")
+
+    plot(UNData[,i], UNData[,j], col="#2C3E50",
+         main = paste("Scatterplot for:", ivar1, ivar2, sep="\n"),
+         xlab= ivar1,
+         ylab= ivar2)
+
+    dev.off()
+
+    cat(paste("Variable index =", i),
+        paste("Plot name:", plotname),
+        paste("Plotted variables:",ivar1,ivar2),
+        paste("DONE!"),
+        cat("\n"),
+        sep ="\n")
+    plotnum <- plotnum + 1
+}
